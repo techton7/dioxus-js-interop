@@ -1,0 +1,10 @@
+[workspace]
+pr_labels = ["release"]
+
+[[package]]
+name = "dioxus-js-bindgen"
+version_group = "main"
+
+[[package]]
+name = "dioxus-js-bindgen-macro"
+version_group = "main"
