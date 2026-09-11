@@ -2,9 +2,9 @@
 pr_labels = ["release"]
 
 [[package]]
-name = "dioxus-js-bindgen"
+name = "dioxus-js-interop"
 version_group = "main"
 
 [[package]]
-name = "dioxus-js-bindgen-macro"
+name = "dioxus-js-interop-macro"
 version_group = "main"

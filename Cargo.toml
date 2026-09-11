@@ -1,15 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/dioxus-js-bindgen",
-    "crates/dioxus-js-bindgen-macro",
+    "crates/dioxus-js-interop",
+    "crates/dioxus-js-interop-macro",
 ]
 
 [workspace.package]
 version = "0.1.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/techton7/dioxus-js-bindgen"
+repository = "https://github.com/techton7/dioxus-js-interop"
 authors = ["Techton <contact@techton.io>"]
 
 [workspace.dependencies]

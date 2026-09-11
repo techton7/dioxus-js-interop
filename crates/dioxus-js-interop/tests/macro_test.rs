@@ -1,4 +1,4 @@
-use dioxus_js_bindgen::{bind_js, use_watcher, JsError};
+use dioxus_js_interop::{bind_js, use_watcher, JsError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -105,7 +105,7 @@ fn test_wildcard_signatures() {
     // Check watcher free function existence
     fn _check_watcher<F>(f: F)
     where
-        F: Fn(Box<dyn FnMut(WindowSize) + 'static>) -> dioxus_js_bindgen::WatcherGuard,
+        F: Fn(Box<dyn FnMut(WindowSize) + 'static>) -> dioxus_js_interop::WatcherGuard,
     {
         let _ = f;
     }
@@ -119,7 +119,7 @@ fn test_selective_signatures_and_renaming() {
     let _cmd_fetch: fn(&str) = selective_bridge::fetch_ignore_ret;
 
     // Renamed watcher is a free function returning WatcherGuard
-    let _guard: Option<dioxus_js_bindgen::WatcherGuard> = None;
+    let _guard: Option<dioxus_js_interop::WatcherGuard> = None;
 }
 
 #[test]
@@ -142,7 +142,7 @@ fn test_multi_invocation_hygiene() {
 
 #[test]
 fn test_macro_watcher_override_precedence() {
-    let _guard: Option<dioxus_js_bindgen::WatcherGuard> = None;
+    let _guard: Option<dioxus_js_interop::WatcherGuard> = None;
 }
 
 // Component to test use_watcher compiles cleanly with generated Watcher function
@@ -186,7 +186,7 @@ fn test_array_generic_signatures() {
 
 #[test]
 fn test_clear_js_cache_alias() {
-    use dioxus_js_bindgen::{clear_js_cache, reset_module_registry};
+    use dioxus_js_interop::{clear_js_cache, reset_module_registry};
     clear_js_cache();
     reset_module_registry();
 }

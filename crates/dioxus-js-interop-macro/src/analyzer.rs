@@ -425,10 +425,10 @@ fn parse_param_type(
         }
     }
 
-    // Default untyped: ::dioxus_js_bindgen::serde_json::Value
+    // Default untyped: ::dioxus_js_interop::serde_json::Value
     Ok(ParamInfo {
         name: name.to_string(),
-        rust_param_type: quote! { ::dioxus_js_bindgen::serde_json::Value },
+        rust_param_type: quote! { ::dioxus_js_interop::serde_json::Value },
         is_callback: false,
         callback_arg_type: None,
     })
@@ -495,9 +495,9 @@ fn map_ts_to_rust_param(ty: &TsType) -> proc_macro2::TokenStream {
             TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
             TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
             TsKeywordTypeKind::TsAnyKeyword | TsKeywordTypeKind::TsUnknownKeyword => {
-                quote! { ::dioxus_js_bindgen::serde_json::Value }
+                quote! { ::dioxus_js_interop::serde_json::Value }
             }
-            _ => quote! { ::dioxus_js_bindgen::serde_json::Value },
+            _ => quote! { ::dioxus_js_interop::serde_json::Value },
         },
         TsType::TsArrayType(arr) => {
             let inner = map_ts_to_rust_param(&arr.elem_type);
@@ -531,7 +531,7 @@ fn map_ts_to_rust_param(ty: &TsType) -> proc_macro2::TokenStream {
                 let inner = map_ts_to_rust_param(non_null[0]);
                 return quote! { Option<#inner> };
             }
-            quote! { ::dioxus_js_bindgen::serde_json::Value }
+            quote! { ::dioxus_js_interop::serde_json::Value }
         }
         TsType::TsTypeRef(type_ref) => {
             if let TsEntityName::Ident(id) = &type_ref.type_name {
@@ -547,10 +547,10 @@ fn map_ts_to_rust_param(ty: &TsType) -> proc_macro2::TokenStream {
                 let ident = syn::Ident::new(&id.sym.to_string(), proc_macro2::Span::call_site());
                 quote! { &#ident }
             } else {
-                quote! { ::dioxus_js_bindgen::serde_json::Value }
+                quote! { ::dioxus_js_interop::serde_json::Value }
             }
         }
-        _ => quote! { ::dioxus_js_bindgen::serde_json::Value },
+        _ => quote! { ::dioxus_js_interop::serde_json::Value },
     }
 }
 
@@ -561,7 +561,7 @@ fn map_ts_to_rust_return(ty: &TsType) -> proc_macro2::TokenStream {
             TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
             TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
             TsKeywordTypeKind::TsVoidKeyword => quote! { () },
-            _ => quote! { ::dioxus_js_bindgen::serde_json::Value },
+            _ => quote! { ::dioxus_js_interop::serde_json::Value },
         },
         TsType::TsArrayType(arr) => {
             let inner = map_ts_to_rust_return(&arr.elem_type);
@@ -594,7 +594,7 @@ fn map_ts_to_rust_return(ty: &TsType) -> proc_macro2::TokenStream {
                 let inner = map_ts_to_rust_return(non_null[0]);
                 return quote! { Option<#inner> };
             }
-            quote! { ::dioxus_js_bindgen::serde_json::Value }
+            quote! { ::dioxus_js_interop::serde_json::Value }
         }
         TsType::TsTypeRef(type_ref) => {
             if let TsEntityName::Ident(id) = &type_ref.type_name {
@@ -610,10 +610,10 @@ fn map_ts_to_rust_return(ty: &TsType) -> proc_macro2::TokenStream {
                 let ident = syn::Ident::new(&id.sym.to_string(), proc_macro2::Span::call_site());
                 quote! { #ident }
             } else {
-                quote! { ::dioxus_js_bindgen::serde_json::Value }
+                quote! { ::dioxus_js_interop::serde_json::Value }
             }
         }
-        _ => quote! { ::dioxus_js_bindgen::serde_json::Value },
+        _ => quote! { ::dioxus_js_interop::serde_json::Value },
     }
 }
 

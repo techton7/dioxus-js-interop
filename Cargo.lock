@@ -453,11 +453,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "dioxus-js-bindgen"
+name = "dioxus-js-interop"
 version = "0.1.1"
 dependencies = [
  "dioxus",
- "dioxus-js-bindgen-macro",
+ "dioxus-js-interop-macro",
  "serde",
  "serde_json",
  "thiserror",
@@ -465,7 +465,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dioxus-js-bindgen-macro"
+name = "dioxus-js-interop-macro"
 version = "0.1.1"
 dependencies = [
  "heck",

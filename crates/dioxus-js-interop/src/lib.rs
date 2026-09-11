@@ -1,8 +1,8 @@
-//! # dioxus-js-bindgen
+//! # dioxus-js-interop
 //!
-//! Zero-Build, Low-Annotation, RAII-Safe Rust <-> JS/TS FFI Binding Engine for Dioxus.
+//! Unified JS/TS FFI and InteropRuntime Engine for Dioxus (Web, Desktop, Mobile).
 
-pub use dioxus_js_bindgen_macro::bind_js;
+pub use dioxus_js_interop_macro::bind_js;
 pub use serde;
 pub use serde_json;
 pub use tracing;

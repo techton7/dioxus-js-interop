@@ -99,7 +99,7 @@ pub fn generate_bindings(
 
         #[inline(always)]
         fn #ensure_fn_ident() {
-            let current_epoch = ::dioxus_js_bindgen::internal::current_epoch();
+            let current_epoch = ::dioxus_js_interop::internal::current_epoch();
             if #epoch_ident.load(::std::sync::atomic::Ordering::Acquire) != current_epoch {
                 let _ = ::dioxus::document::eval(&format!(
                     r#"
@@ -146,7 +146,7 @@ fn generate_command(
     let payload_tokens = if param_names.is_empty() {
         quote! { "[]".to_string() }
     } else {
-        quote! { ::dioxus_js_bindgen::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in command") }
+        quote! { ::dioxus_js_interop::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in command") }
     };
 
     quote! {
@@ -200,12 +200,12 @@ fn generate_query(
     let payload_tokens = if param_names.is_empty() {
         quote! { "[]".to_string() }
     } else {
-        quote! { ::dioxus_js_bindgen::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in query") }
+        quote! { ::dioxus_js_interop::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in query") }
     };
 
     quote! {
         #[doc = #doc]
-        pub async fn #rust_fn_ident(#(#param_names: #param_types),*) -> Result<#ret_type, ::dioxus_js_bindgen::JsError> {
+        pub async fn #rust_fn_ident(#(#param_names: #param_types),*) -> Result<#ret_type, ::dioxus_js_interop::JsError> {
             #ensure_fn_ident();
 
             let payload = #payload_tokens;
@@ -231,19 +231,19 @@ fn generate_query(
                 payload = payload
             ));
 
-            let raw_val: ::dioxus_js_bindgen::serde_json::Value = eval.recv().await
-                .map_err(|e| ::dioxus_js_bindgen::JsError::Transport(e.to_string()))?;
+            let raw_val: ::dioxus_js_interop::serde_json::Value = eval.recv().await
+                .map_err(|e| ::dioxus_js_interop::JsError::Transport(e.to_string()))?;
 
-            let resp: ::dioxus_js_bindgen::RpcResponse<::dioxus_js_bindgen::serde_json::Value> = ::dioxus_js_bindgen::serde_json::from_value(raw_val)
-                .map_err(|e| ::dioxus_js_bindgen::JsError::Deserialization(format!("Failed to deserialize RPC response frame: {}", e)))?;
+            let resp: ::dioxus_js_interop::RpcResponse<::dioxus_js_interop::serde_json::Value> = ::dioxus_js_interop::serde_json::from_value(raw_val)
+                .map_err(|e| ::dioxus_js_interop::JsError::Deserialization(format!("Failed to deserialize RPC response frame: {}", e)))?;
 
-            let decode_resp = |resp: ::dioxus_js_bindgen::RpcResponse<::dioxus_js_bindgen::serde_json::Value>| -> Result<#ret_type, ::dioxus_js_bindgen::JsError> {
+            let decode_resp = |resp: ::dioxus_js_interop::RpcResponse<::dioxus_js_interop::serde_json::Value>| -> Result<#ret_type, ::dioxus_js_interop::JsError> {
                 if resp.ok {
-                    let data_val = resp.data.unwrap_or(::dioxus_js_bindgen::serde_json::Value::Null);
-                    ::dioxus_js_bindgen::serde_json::from_value::<#ret_type>(data_val)
-                        .map_err(|e| ::dioxus_js_bindgen::JsError::Deserialization(format!("Failed to deserialize return data into {}: {}", stringify!(#ret_type), e)))
+                    let data_val = resp.data.unwrap_or(::dioxus_js_interop::serde_json::Value::Null);
+                    ::dioxus_js_interop::serde_json::from_value::<#ret_type>(data_val)
+                        .map_err(|e| ::dioxus_js_interop::JsError::Deserialization(format!("Failed to deserialize return data into {}: {}", stringify!(#ret_type), e)))
                 } else {
-                    Err(::dioxus_js_bindgen::JsError::Exception {
+                    Err(::dioxus_js_interop::JsError::Exception {
                         message: resp.error.unwrap_or_else(|| "Unknown JS error".into()),
                         stack: resp.stack,
                     })
@@ -277,15 +277,15 @@ fn generate_query(
                         payload = payload
                     ));
 
-                    let retry_val: ::dioxus_js_bindgen::serde_json::Value = retry_eval.recv().await
-                        .map_err(|e| ::dioxus_js_bindgen::JsError::Transport(e.to_string()))?;
+                    let retry_val: ::dioxus_js_interop::serde_json::Value = retry_eval.recv().await
+                        .map_err(|e| ::dioxus_js_interop::JsError::Transport(e.to_string()))?;
 
-                    let retry_resp: ::dioxus_js_bindgen::RpcResponse<::dioxus_js_bindgen::serde_json::Value> = ::dioxus_js_bindgen::serde_json::from_value(retry_val)
-                        .map_err(|e| ::dioxus_js_bindgen::JsError::Deserialization(format!("Failed to deserialize retry RPC response frame: {}", e)))?;
+                    let retry_resp: ::dioxus_js_interop::RpcResponse<::dioxus_js_interop::serde_json::Value> = ::dioxus_js_interop::serde_json::from_value(retry_val)
+                        .map_err(|e| ::dioxus_js_interop::JsError::Deserialization(format!("Failed to deserialize retry RPC response frame: {}", e)))?;
 
                     if let Some(retry_err) = retry_resp.as_error() {
                         if retry_err == "MODULE_UNAVAILABLE" || retry_err == "MODULE_NOT_FOUND" {
-                            return Err(::dioxus_js_bindgen::JsError::ModuleUnavailable(#module_hash.to_string()));
+                            return Err(::dioxus_js_interop::JsError::ModuleUnavailable(#module_hash.to_string()));
                         }
                     }
 
@@ -325,7 +325,7 @@ fn generate_watcher(
     let payload_tokens = if param_names.is_empty() {
         quote! { "[]".to_string() }
     } else {
-        quote! { ::dioxus_js_bindgen::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in watcher") }
+        quote! { ::dioxus_js_interop::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in watcher") }
     };
 
     quote! {
@@ -333,10 +333,10 @@ fn generate_watcher(
         pub fn #rust_name_ident(
             #(#param_names: #param_types,)*
             mut on_event: impl FnMut(#callback_arg_type) + 'static,
-        ) -> ::dioxus_js_bindgen::WatcherGuard {
+        ) -> ::dioxus_js_interop::WatcherGuard {
             #ensure_fn_ident();
 
-            let sub_id = ::dioxus_js_bindgen::internal::next_subscription_id();
+            let sub_id = ::dioxus_js_interop::internal::next_subscription_id();
             let payload = #payload_tokens;
 
             let mut eval = ::dioxus::document::eval(&format!(
@@ -362,17 +362,17 @@ fn generate_watcher(
             ));
 
             let task = ::dioxus::prelude::spawn(async move {
-                while let Ok(event) = eval.recv::<::dioxus_js_bindgen::serde_json::Value>().await {
+                while let Ok(event) = eval.recv::<::dioxus_js_interop::serde_json::Value>().await {
                     if event.get("__bindgen_err").and_then(|v| v.as_str()) == Some("MODULE_NOT_FOUND") {
                         #epoch_ident.store(0, ::std::sync::atomic::Ordering::Release);
                         break;
                     }
-                    match ::dioxus_js_bindgen::serde_json::from_value::<#callback_arg_type>(event) {
+                    match ::dioxus_js_interop::serde_json::from_value::<#callback_arg_type>(event) {
                         Ok(data) => {
                             on_event(data);
                         }
                         Err(err) => {
-                            ::dioxus_js_bindgen::tracing::error!(
+                            ::dioxus_js_interop::tracing::error!(
                                 target: "dioxus_js_bindgen",
                                 "Failed to deserialize watcher event for '{}': {}",
                                 #js_name,
@@ -383,7 +383,7 @@ fn generate_watcher(
                 }
             });
 
-            ::dioxus_js_bindgen::WatcherGuard::new(stringify!(#rust_name_ident), sub_id, Some(task))
+            ::dioxus_js_interop::WatcherGuard::new(stringify!(#rust_name_ident), sub_id, Some(task))
         }
     }
 }
