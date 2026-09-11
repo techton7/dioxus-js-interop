@@ -1,0 +1,18 @@
+[package]
+name = "dioxus-js-bindgen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Zero-build, low-annotation, RAII-safe JS/TS FFI binding engine for Dioxus"
+readme = "../../README.md"
+
+[dependencies]
+dioxus-js-bindgen-macro = { path = "../dioxus-js-bindgen-macro", version = "0.1.0" }
+
+dioxus.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
