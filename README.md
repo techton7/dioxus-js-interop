@@ -423,7 +423,29 @@ bind_js!("src/browser/dom.ts"::{
 });
 ```
 
-### 4. Automatic Casing Normalization
+### 4. Selective Overrides with Wildcard Fallback (`{ items, * }`)
+
+When a module exports many functions, listing every single one just to customize or rename a few creates tedious boilerplate. `bind_js!` allows you to specify **selective overrides and append `*` to import all remaining exports**:
+
+```rust
+bind_js!("src/browser/dom.ts"::{
+    // 1. Rename a specific function into a custom Rust identifier:
+    measure_element as get_bounding_box,
+
+    // 2. Override classification attributes for a specific function:
+    #[command] track_analytics,
+    #[watcher] custom_listener as watch_custom,
+
+    // 3. Trailing Wildcard: Imports all other remaining exports automatically!
+    *
+});
+```
+
+* **Best of Both Worlds**: You get explicit control over targeted functions without having to manually enumerate the entire module.
+* **Full Casing & Model Safety**: All unlisted functions imported via `*` follow standard AST inference and snake_case normalization.
+
+### 5. Automatic Casing Normalization
+
 
 JavaScript conventions favor `camelCase`, while Rust conventions require `snake_case`. The macro automatically reconciles casing across all binding and renaming scenarios within a single import block:
 
@@ -455,7 +477,7 @@ bind_js!("dom.ts"::{
 });
 ```
 
-### 5. Private Declarations & Module State
+### 6. Private Declarations & Module State
 Non-exported functions, internal classes, top-level constants, and module-scoped variables inside the `.ts` file are bundled transparently into the inlined JavaScript module. You can use private helpers freely:
 ```typescript
 // Private helper (not exported, not bound to Rust)
@@ -762,3 +784,10 @@ Dual-licensed under either of:
 - MIT license ([LICENSE-MIT](LICENSE-MIT))
 
 at your option.
+
+---
+
+## Contributing
+
+Issues and pull requests are warmly welcome! If you encounter any bugs, have feature requests, or wish to contribute improvements, feel free to open an issue or submit a pull request on [GitHub](https://github.com/techton7/dioxus-js-bindgen).
+

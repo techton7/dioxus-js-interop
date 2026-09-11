@@ -66,6 +66,16 @@ mod camel_case_rename_bridge {
     });
 }
 
+// 7. Selective import with trailing wildcard fallback test module
+mod selective_wildcard_bridge {
+    use super::*;
+    bind_js!("tests/fixtures/test_bridge.ts"::{
+        focus_element as focus_renamed,
+        #[command] fetch_remote_title as fetch_cmd,
+        *
+    });
+}
+
 #[test]
 fn test_wildcard_signatures() {
     // Check function existence and signatures without running browser eval
@@ -179,5 +189,17 @@ fn test_clear_js_cache_alias() {
     use dioxus_js_bindgen::{clear_js_cache, reset_module_registry};
     clear_js_cache();
     reset_module_registry();
+}
+
+#[test]
+fn test_selective_with_wildcard_fallback() {
+    // 1. Explicitly renamed item exists under new name
+    let _focus_fn: fn(&str) = selective_wildcard_bridge::focus_renamed;
+
+    // 2. Explicitly overridden item exists as void command
+    let _cmd_fetch: fn(&str) = selective_wildcard_bridge::fetch_cmd;
+
+    // 3. Trailing wildcard imports other functions automatically with standard defaults
+    let _scroll_fn: fn(f64, f64) = selective_wildcard_bridge::scroll_to_position;
 }
 
