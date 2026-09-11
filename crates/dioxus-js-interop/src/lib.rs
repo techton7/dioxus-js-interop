@@ -2,6 +2,8 @@
 //!
 //! Unified JS/TS FFI and InteropRuntime Engine for Dioxus (Web, Desktop, Mobile).
 
+extern crate self as dioxus_js_interop;
+
 pub use dioxus_js_interop_macro::bind_js;
 pub use serde;
 pub use serde_json;
@@ -9,6 +11,8 @@ pub use tracing;
 
 pub mod watcher_guard;
 pub use watcher_guard::WatcherGuard;
+
+pub mod runtime;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use dioxus::prelude::*;
