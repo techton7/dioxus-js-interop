@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/techton7/oxidase/compare/oxidase-v0.1.1...oxidase-v0.1.2) - 2026-09-12
+
+### Added
+
+- add official brand icon and integrate into README and playground
+
 ## [0.1.1](https://github.com/techton7/dioxus-js-interop/releases/tag/dioxus-js-interop-v0.1.1) - 2026-09-11
 
 ### Added
