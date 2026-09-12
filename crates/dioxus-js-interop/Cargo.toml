@@ -9,7 +9,7 @@ description = "Zero-build, low-annotation, RAII-safe JS/TS FFI and InteropRuntim
 readme = "../../README.md"
 
 [dependencies]
-dioxus-js-interop-macro = { path = "../dioxus-js-interop-macro", version = "0.1.1" }
+dioxus-js-interop-macro = { path = "../dioxus-js-interop-macro", version = "0.1.2" }
 
 dioxus.workspace = true
 serde.workspace = true
