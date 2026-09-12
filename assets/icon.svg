@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- 지그재그 결합 부위(Cleft)를 투명하게 뚫어주는 마스크 -->
+    <mask id="oxidase-cleft-mask">
+      <rect width="512" height="512" fill="#FFFFFF" />
+      <path d="M 70 268 H 168 L 202 188 L 250 226 L 284 146 L 332 184 L 372 92"
+            fill="none"
+            stroke="#000000"
+            stroke-width="26"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+    </mask>
+
+    <!-- 좌상단(Blue) 영역 클리핑 -->
+    <clipPath id="top-left-clip">
+      <path d="M 60 268 H 168 L 202 188 L 250 226 L 284 146 L 332 184 L 372 92 L 372 30 L 40 30 L 40 268 Z" />
+    </clipPath>
+
+    <!-- 우하단(Orange) 영역 클리핑 -->
+    <clipPath id="bottom-right-clip">
+      <path d="M 60 268 H 168 L 202 188 L 250 226 L 284 146 L 332 184 L 372 92 L 480 92 L 480 480 L 60 480 Z" />
+    </clipPath>
+  </defs>
+
+  <!-- 메인 효소 바디 (투명 틈새 마스크 적용) -->
+  <g mask="url(#oxidase-cleft-mask)">
+    <!-- 1. 상단 좌측: Dioxus Cyan/Blue Substrate -->
+    <g clip-path="url(#top-left-clip)">
+      <g transform="translate(256, 256) rotate(-42)">
+        <ellipse cx="0" cy="0" rx="192" ry="136" fill="#0EA5E9" />
+      </g>
+    </g>
+
+    <!-- 2. 하단 우측: Dioxus Rust/Orange Enzyme Body -->
+    <g clip-path="url(#bottom-right-clip)">
+      <g transform="translate(256, 256) rotate(-42)">
+        <ellipse cx="0" cy="0" rx="192" ry="136" fill="#F05624" />
+      </g>
+    </g>
+  </g>
+
+  <!-- 3. Ferris의 눈 (눈 사이 간격 확장: ±31 -> ±37) -->
+  <g id="ferris-eyes" transform="translate(276, 310) rotate(-35)">
+    <!-- 왼쪽 눈 -->
+    <ellipse cx="-37" cy="0" rx="19" ry="27" fill="#18181B" />
+    <!-- 왼쪽 눈 하이라이트 -->
+    <ellipse cx="-42" cy="-9" rx="8.5" ry="13" fill="#FFFFFF" />
+
+    <!-- 오른쪽 눈 -->
+    <ellipse cx="37" cy="0" rx="19" ry="27" fill="#18181B" />
+    <!-- 오른쪽 눈 하이라이트 -->
+    <ellipse cx="32" cy="-9" rx="8.5" ry="13" fill="#FFFFFF" />
+  </g>
+</svg>

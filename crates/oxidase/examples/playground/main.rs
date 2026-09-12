@@ -105,14 +105,17 @@ fn App() -> Element {
             div { style: "max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem;",
 
                 // Header
-                header { style: "background: white; padding: 2rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);",
-                    h1 {
-                        id: "page-title",
-                        style: "margin: 0 0 0.5rem 0; font-size: 1.75rem; font-weight: 700; color: #1e1b4b;",
-                        "⚡ oxidase Live Runtime Proof"
-                    }
-                    p { style: "margin: 0; font-size: 0.875rem; color: #64748b;",
-                        "Standalone Layer 1 browser FFI & runtime engine: Command, Query, Watcher, Self-Healing, and rAF Coalescing."
+                header { style: "background: white; padding: 1.75rem 2rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 1.5rem;",
+                    OxidaseIcon {}
+                    div {
+                        h1 {
+                            id: "page-title",
+                            style: "margin: 0 0 0.25rem 0; font-size: 1.75rem; font-weight: 700; color: #1e1b4b;",
+                            "oxidase Live Runtime Proof"
+                        }
+                        p { style: "margin: 0; font-size: 0.875rem; color: #64748b;",
+                            "Standalone Layer 1 browser FFI & runtime engine: Command, Query, Watcher, Self-Healing, and rAF Coalescing."
+                        }
                     }
                 }
 
@@ -501,3 +504,15 @@ fn App() -> Element {
         }
     }
 }
+
+#[component]
+fn OxidaseIcon() -> Element {
+    let svg_content = include_str!("../../../../assets/icon.svg");
+    rsx! {
+        div {
+            style: "width: 56px; height: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;",
+            dangerous_inner_html: "{svg_content}",
+        }
+    }
+}
+

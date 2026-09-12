@@ -1,6 +1,20 @@
-# oxidase
+<p align="center">
+  <img src="https://raw.githubusercontent.com/techton7/oxidase/main/assets/icon.svg" alt="oxidase logo" width="160" height="160" />
+</p>
 
-> **TypeScript and JavaScript interop for Dioxus.**
+<h1 align="center">oxidase</h1>
+
+<p align="center">
+  <strong>TypeScript and JavaScript interop for Dioxus.</strong>
+</p>
+
+<p align="center">
+  <a href="https://crates.io/crates/oxidase"><img src="https://img.shields.io/crates/v/oxidase.svg" alt="Crates.io" /></a>
+  <a href="https://docs.rs/oxidase"><img src="https://docs.rs/oxidase/badge.svg" alt="docs.rs" /></a>
+  <a href="LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg" alt="License" /></a>
+</p>
+
+---
 
 `oxidase` is a compile-time FFI binding generator and runtime engine for [Dioxus](https://dioxuslabs.com). It transforms standard TypeScript and JavaScript files into strongly-typed synchronous Rust commands, asynchronous RPC queries, and leak-free RAII reactive watchers.
 
