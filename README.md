@@ -1,8 +1,8 @@
-# dioxus-js-bindgen
+# oxidase
 
 > **TypeScript and JavaScript interop for Dioxus.**
 
-`dioxus-js-bindgen` is a compile-time FFI binding generator and runtime engine for [Dioxus](https://dioxuslabs.com). It transforms standard TypeScript and JavaScript files into strongly-typed synchronous Rust commands, asynchronous RPC queries, and leak-free RAII reactive watchers.
+`oxidase` is a compile-time FFI binding generator and runtime engine for [Dioxus](https://dioxuslabs.com). It transforms standard TypeScript and JavaScript files into strongly-typed synchronous Rust commands, asynchronous RPC queries, and leak-free RAII reactive watchers.
 
 AST parsing, type stripping, and bundling are executed entirely in-memory using a Rust-native [SWC](https://swc.rs) engine—**requiring zero external toolchains (no Node.js, npm, or Bun)** in either local development or CI/CD pipelines.
 
@@ -117,7 +117,7 @@ export function watchResize(
 In your Rust module or component file:
 
 ```rust
-use dioxus_js_bindgen::bind_js;
+use oxidase::bind_js;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -144,7 +144,7 @@ bind_js!("src/browser/dom.ts"::{
 
 ```rust
 use dioxus::prelude::*;
-use dioxus_js_bindgen::use_watcher;
+use oxidase::use_watcher;
 
 #[component]
 pub fn ResizableBox() -> Element {
@@ -496,7 +496,7 @@ export function scrollAdjusted(id: string): void {
 
 ## Compilation Diagnostics & Unsupported Patterns
 
-To guarantee predictable runtime behavior and avoid hidden build-pipeline dependencies, `dioxus-js-bindgen` rejects unsupported JavaScript constructs at compile time with actionable diagnostics:
+To guarantee predictable runtime behavior and avoid hidden build-pipeline dependencies, `oxidase` rejects unsupported JavaScript constructs at compile time with actionable diagnostics:
 
 ### 1. Top-Level Static Imports
 - ❌ **Disallowed**:
@@ -571,8 +571,8 @@ To guarantee predictable runtime behavior and avoid hidden build-pipeline depend
 │  IPC Boundary (dioxus::document::eval)                 │
 │                                                        │
 │  Browser Side:                                         │
-│   ├── window.__DIOXUS_BINDGEN_MODULES__["{HASH}"]      │
-│   └── window.__DIOXUS_WATCHERS: Map<sub_id, cleanup>   │
+│   ├── window.__OXIDASE_MODULES__["{HASH}"]      │
+│   └── window.__OXIDASE_WATCHERS: Map<sub_id, cleanup>   │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -582,14 +582,14 @@ During compilation, `bind_js!` uses `swc_core` to:
 2. Validate signatures and enforce diagnostic invariants.
 3. Strip type annotations, interfaces, and type aliases.
 4. Hash the source file content deterministically.
-5. Invert the module into an isolated IIFE that registers its exports into `window.__DIOXUS_BINDGEN_MODULES__["{HASH}"]`.
+5. Invert the module into an isolated IIFE that registers its exports into `window.__OXIDASE_MODULES__["{HASH}"]`.
 
 ### Hybrid Lazy Loader & Double-Epoch IPC Cache
 To avoid re-evaluating JavaScript code on every function call:
 - **Rust Load Epoch**: Each generated module contains a `static MODULE_LOADED_EPOCH: AtomicU64 = AtomicU64::new(0)`.
-- **Fast Path (~0ns)**: On invocation, Rust compares `MODULE_LOADED_EPOCH` with `dioxus_js_bindgen::internal::current_epoch()`. If they match, the module is known to be loaded in the browser, and dispatch proceeds immediately without initialization overhead.
+- **Fast Path (~0ns)**: On invocation, Rust compares `MODULE_LOADED_EPOCH` with `oxidase::internal::current_epoch()`. If they match, the module is known to be loaded in the browser, and dispatch proceeds immediately without initialization overhead.
 - **Slow Path**: If epochs differ (first run or after a global reset), Rust evaluates the module bundle in the browser and updates the atomic epoch.
-- **Global Cache Invalidation**: Calling `dioxus_js_bindgen::clear_js_cache()` (or legacy alias `reset_module_registry()`) increments the global epoch and clears the browser module cache. Note that this invalidates the module bundle evaluation cache so modules re-evaluate on next invocation; it does *not* automatically terminate active watchers or reset individual subscription lifecycle state (which remains owned by `WatcherGuard`).
+- **Global Cache Invalidation**: Calling `oxidase::clear_js_cache()` (or legacy alias `reset_module_registry()`) increments the global epoch and clears the browser module cache. Note that this invalidates the module bundle evaluation cache so modules re-evaluate on next invocation; it does *not* automatically terminate active watchers or reset individual subscription lifecycle state (which remains owned by `WatcherGuard`).
 
 ### Asymmetric Recovery & Bounded Self-Healing
 If the browser context loses module state (e.g. following full-page navigation or hot reload):
@@ -599,22 +599,22 @@ If the browser context loses module state (e.g. following full-page navigation o
 
 ### Watcher Wire Protocol & Idempotent Cleanup
 1. **Subscription Registration**: Calling `watch_x(..., emit)` generates a globally unique 64-bit `subscription_id` and returns a `WatcherGuard`.
-2. **Browser Storage**: The JavaScript watcher factory runs and places its cleanup closure into `window.__DIOXUS_WATCHERS.set(sub_id, cleanup)`.
+2. **Browser Storage**: The JavaScript watcher factory runs and places its cleanup closure into `window.__OXIDASE_WATCHERS.set(sub_id, cleanup)`.
 3. **Continuous Streaming**: The browser watcher invokes `emit(payload)` whenever events occur, transmitting serialized JSON to Dioxus.
 4. **Deterministic Teardown**: When the Rust watcher handle is dropped (or `.stop()` is called):
    - The background Dioxus task is cancelled.
    - A synchronous teardown eval is dispatched:
      ```javascript
-     const cleanup = window.__DIOXUS_WATCHERS?.get(sub_id);
+     const cleanup = window.__OXIDASE_WATCHERS?.get(sub_id);
      if (cleanup) {
          try { cleanup(); } catch (e) { console.error(e); }
-         window.__DIOXUS_WATCHERS.delete(sub_id);
+         window.__OXIDASE_WATCHERS.delete(sub_id);
      }
      ```
    - Teardown is 100% idempotent: subsequent calls or drops are safe no-ops.
 
 ### Reactive `use_watcher` Hook
-Standard Dioxus hooks like `use_hook` require `Clone`, which directly conflicts with RAII cleanup structs. `dioxus-js-bindgen` provides `use_watcher`, a pure reactive hook wrapping `use_effect`:
+Standard Dioxus hooks like `use_hook` require `Clone`, which directly conflicts with RAII cleanup structs. `oxidase` provides `use_watcher`, a pure reactive hook wrapping `use_effect`:
 
 ```rust
 pub fn use_watcher<W: 'static>(mut factory: impl FnMut() -> Option<W> + 'static) {
@@ -739,14 +739,14 @@ match get_bounding_box("target-id").await {
 In non-browser environments (such as unit tests running via `cargo test` on desktop/server targets):
 - **Runtime Presence Checks**: Functions check `dioxus::core::Runtime::try_current()` before attempting IPC dispatch.
 - **Unwind Protection**: Watcher `Drop` and cleanup dispatch are wrapped in `std::panic::catch_unwind`, preventing teardown panics when dropping watcher handles outside of an active Dioxus thread.
-- **Test Isolation**: `dioxus_js_bindgen::clear_js_cache()` (or legacy alias `reset_module_registry()`) can be safely invoked between tests to invalidate module evaluation caches cleanly.
+- **Test Isolation**: `oxidase::clear_js_cache()` (or legacy alias `reset_module_registry()`) can be safely invoked between tests to invalidate module evaluation caches cleanly.
 
 
 ---
 
 ## Untyped JavaScript Fallback
 
-While `dioxus-js-bindgen` is architected as **TypeScript-first** for zero-cost compile-time type extraction, you can also bind pure untyped `.js` files. When binding JavaScript files without TypeScript types:
+While `oxidase` is architected as **TypeScript-first** for zero-cost compile-time type extraction, you can also bind pure untyped `.js` files. When binding JavaScript files without TypeScript types:
 
 1. **Parameter Fallback**: Because plain JavaScript lacks static parameter annotations, parameters fall back to `serde_json::Value`:
    ```javascript
@@ -789,5 +789,5 @@ at your option.
 
 ## Contributing
 
-Issues and pull requests are warmly welcome! If you encounter any bugs, have feature requests, or wish to contribute improvements, feel free to open an issue or submit a pull request on [GitHub](https://github.com/techton7/dioxus-js-bindgen).
+Issues and pull requests are warmly welcome! If you encounter any bugs, have feature requests, or wish to contribute improvements, feel free to open an issue or submit a pull request on [GitHub](https://github.com/techton7/oxidase).
 

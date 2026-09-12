@@ -1,4 +1,4 @@
-// Bridge for live runtime verification of dioxus-js-interop in standalone playground
+// Bridge for live runtime verification of oxidase in standalone playground
 
 /**
  * Focus element by ID (Command)

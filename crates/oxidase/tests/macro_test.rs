@@ -1,4 +1,4 @@
-use dioxus_js_interop::{bind_js, use_watcher, JsError};
+use oxidase::{bind_js, use_watcher, JsError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -115,7 +115,7 @@ fn test_wildcard_signatures() {
     // Check watcher free function existence
     fn _check_watcher<F>(f: F)
     where
-        F: Fn(Box<dyn FnMut(WindowSize) + 'static>) -> dioxus_js_interop::WatcherGuard,
+        F: Fn(Box<dyn FnMut(WindowSize) + 'static>) -> oxidase::WatcherGuard,
     {
         let _ = f;
     }
@@ -129,7 +129,7 @@ fn test_selective_signatures_and_renaming() {
     let _cmd_fetch: fn(&str) = selective_bridge::fetch_ignore_ret;
 
     // Renamed watcher is a free function returning WatcherGuard
-    let _guard: Option<dioxus_js_interop::WatcherGuard> = None;
+    let _guard: Option<oxidase::WatcherGuard> = None;
 }
 
 #[test]
@@ -152,14 +152,14 @@ fn test_multi_invocation_hygiene() {
 
 #[test]
 fn test_macro_watcher_override_precedence() {
-    let _guard: Option<dioxus_js_interop::WatcherGuard> = None;
+    let _guard: Option<oxidase::WatcherGuard> = None;
 }
 
 #[test]
 fn test_raf_watcher_signatures() {
     fn _check_doc<F>(f: F)
     where
-        F: Fn(fn(f64)) -> dioxus_js_interop::WatcherGuard,
+        F: Fn(fn(f64)) -> oxidase::WatcherGuard,
     {
         let _ = f;
     }
@@ -167,7 +167,7 @@ fn test_raf_watcher_signatures() {
 
     fn _check_macro<F>(f: F)
     where
-        F: Fn(f64, fn(f64)) -> dioxus_js_interop::WatcherGuard,
+        F: Fn(f64, fn(f64)) -> oxidase::WatcherGuard,
     {
         let _ = f;
     }
@@ -215,7 +215,7 @@ fn test_array_generic_signatures() {
 
 #[test]
 fn test_clear_js_cache_alias() {
-    use dioxus_js_interop::{clear_js_cache, reset_module_registry};
+    use oxidase::{clear_js_cache, reset_module_registry};
     clear_js_cache();
     reset_module_registry();
 }

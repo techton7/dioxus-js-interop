@@ -1,10 +1,10 @@
-//! # dioxus-js-interop
+//! # oxidase
 //!
-//! Unified JS/TS FFI and InteropRuntime Engine for Dioxus (Web, Desktop, Mobile).
+//! Unified high-performance JS/TS FFI and browser runtime engine for Dioxus.
 
-extern crate self as dioxus_js_interop;
+extern crate self as oxidase;
 
-pub use dioxus_js_interop_macro::bind_js;
+pub use oxidase_macro::bind_js;
 pub use serde;
 pub use serde_json;
 pub use tracing;

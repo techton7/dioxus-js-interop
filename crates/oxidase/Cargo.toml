@@ -1,15 +1,15 @@
 [package]
-name = "dioxus-js-interop"
+name = "oxidase"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Zero-build, low-annotation, RAII-safe JS/TS FFI and InteropRuntime engine for Dioxus"
+description = "High-performance browser FFI runtime engine for Dioxus"
 readme = "../../README.md"
 
 [dependencies]
-dioxus-js-interop-macro = { path = "../dioxus-js-interop-macro", version = "0.1.1" }
+oxidase-macro = { path = "../oxidase-macro", version = "0.1.1" }
 
 dioxus.workspace = true
 serde.workspace = true

@@ -2,9 +2,9 @@
 pr_labels = ["release"]
 
 [[package]]
-name = "dioxus-js-interop"
+name = "oxidase"
 version_group = "main"
 
 [[package]]
-name = "dioxus-js-interop-macro"
+name = "oxidase-macro"
 version_group = "main"

@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_js_interop::{bind_js, reset_module_registry, use_watcher, WatcherGuard};
+use oxidase::{bind_js, reset_module_registry, use_watcher, WatcherGuard};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -109,7 +109,7 @@ fn App() -> Element {
                     h1 {
                         id: "page-title",
                         style: "margin: 0 0 0.5rem 0; font-size: 1.75rem; font-weight: 700; color: #1e1b4b;",
-                        "⚡ dioxus-js-interop Live Runtime Proof"
+                        "⚡ oxidase Live Runtime Proof"
                     }
                     p { style: "margin: 0; font-size: 0.875rem; color: #64748b;",
                         "Standalone Layer 1 browser FFI & runtime engine: Command, Query, Watcher, Self-Healing, and rAF Coalescing."

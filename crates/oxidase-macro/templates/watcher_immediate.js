@@ -1,7 +1,7 @@
 (function() {
     const mod = window.__DIOXUS_BINDGEN_MODULES__?.["__MODULE_HASH__"];
     if (!mod) {
-        console.error("[dioxus-js-interop]: Module '__MODULE_HASH__' not found. Cannot start watcher.");
+        console.error("[oxidase]: Module '__MODULE_HASH__' not found. Cannot start watcher.");
         dioxus.send({ __bindgen_err: "MODULE_NOT_FOUND" });
         return;
     }
