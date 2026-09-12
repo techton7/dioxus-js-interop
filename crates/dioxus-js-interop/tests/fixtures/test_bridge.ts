@@ -63,6 +63,16 @@ export function watchCustomSignal(multiplier: number, emit: (val: number) => voi
 }
 
 /**
+ * Watch high frequency events with opt-in rAF coalescing
+ * #[watcher(raf)]
+ */
+export function watchScrollFramed(emit: (scrollY: number) => void): () => void {
+    const handler = () => emit(window.scrollY);
+    window.addEventListener("scroll", handler);
+    return () => window.removeEventListener("scroll", handler);
+}
+
+/**
  * Test Array generic parameter and return
  */
 export function processTags(tags: Array<string>): Array<string> {

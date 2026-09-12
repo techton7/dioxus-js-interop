@@ -3,8 +3,8 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
 
-use crate::analyzer::{AnalyzedModule, ExportedFunction, InferredPillar};
-use crate::syntax::{BindJsInput, PillarAttr};
+use crate::analyzer::{AnalyzedModule, ExportedFunction};
+use crate::syntax::{BindJsInput, InteropMode};
 
 pub fn generate_bindings(
     input: &BindJsInput,
@@ -41,13 +41,9 @@ pub fn generate_bindings(
             item_camel == name_camel || item_snake == name_snake
         });
 
-        let (pillar, rust_fn_ident) = if let Some((idx, item)) = matched_item {
+        let (mode, rust_fn_ident) = if let Some((idx, item)) = matched_item {
             matched_specs[idx] = true;
-            let pillar = item.attr.map(|a| match a {
-                PillarAttr::Command => InferredPillar::Command,
-                PillarAttr::Query => InferredPillar::Query,
-                PillarAttr::Watcher => InferredPillar::Watcher,
-            }).unwrap_or(export.pillar);
+            let mode = item.mode.unwrap_or(export.mode);
 
             let rust_name = item.rename_as.as_ref().map(|id| {
                 Ident::new(&id.to_string().to_snake_case(), id.span())
@@ -55,25 +51,25 @@ pub fn generate_bindings(
                 Ident::new(&name_snake, call_span)
             });
 
-            (pillar, rust_name)
+            (mode, rust_name)
         } else if input.wildcard {
-            (export.pillar, Ident::new(&name_snake, call_span))
+            (export.mode, Ident::new(&name_snake, call_span))
         } else {
             // Unselected export when wildcard is false
             continue;
         };
 
-        match pillar {
-            InferredPillar::Command => {
+        match mode {
+            InteropMode::Command => {
                 let tokens = generate_command(export, module_hash, &rust_fn_ident, &ensure_fn_ident);
                 generated_items.push(tokens);
             }
-            InferredPillar::Query => {
+            InteropMode::Query => {
                 let tokens = generate_query(export, module_hash, &rust_fn_ident, &ensure_fn_ident, &epoch_ident);
                 generated_items.push(tokens);
             }
-            InferredPillar::Watcher => {
-                let tokens = generate_watcher(export, module_hash, &rust_fn_ident, &ensure_fn_ident, &epoch_ident);
+            InteropMode::Watcher { is_raf } => {
+                let tokens = generate_watcher(export, module_hash, &rust_fn_ident, &ensure_fn_ident, &epoch_ident, is_raf);
                 generated_items.push(tokens);
             }
         }
@@ -93,6 +89,11 @@ pub fn generate_bindings(
         }
     }
 
+    let ensure_js = include_str!("../templates/ensure_module.js")
+        .replace("__MODULE_HASH__", module_hash)
+        .replace("__INLINED_JS__", inlined_js)
+        .replace("__EXPORT_KEYS__", &export_keys_str);
+
     let ensure_module_fn = quote! {
         const _: &[u8] = include_bytes!(#resolved_path_str);
         static #epoch_ident: ::std::sync::atomic::AtomicU64 = ::std::sync::atomic::AtomicU64::new(0);
@@ -101,22 +102,7 @@ pub fn generate_bindings(
         fn #ensure_fn_ident() {
             let current_epoch = ::dioxus_js_interop::internal::current_epoch();
             if #epoch_ident.load(::std::sync::atomic::Ordering::Acquire) != current_epoch {
-                let _ = ::dioxus::document::eval(&format!(
-                    r#"
-                    (function() {{
-                        if (!window.__DIOXUS_BINDGEN_MODULES__) window.__DIOXUS_BINDGEN_MODULES__ = {{}};
-                        if (!window.__DIOXUS_BINDGEN_MODULES__["{module_hash}"]) {{
-                            window.__DIOXUS_BINDGEN_MODULES__["{module_hash}"] = (function() {{
-                                {inlined_js}
-                                return {{ {export_keys} }};
-                            }})();
-                        }}
-                    }})();
-                    "#,
-                    module_hash = #module_hash,
-                    inlined_js = #inlined_js,
-                    export_keys = #export_keys_str
-                ));
+                let _ = ::dioxus::document::eval(#ensure_js);
                 #epoch_ident.store(current_epoch, ::std::sync::atomic::Ordering::Release);
             }
         }
@@ -149,32 +135,19 @@ fn generate_command(
         quote! { ::dioxus_js_interop::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in command") }
     };
 
+    let js = include_str!("../templates/command.js")
+        .replace("__MODULE_HASH__", module_hash)
+        .replace("__JS_NAME__", js_name);
+    let (part1, part2) = js.split_once("__PAYLOAD__").expect("command template missing __PAYLOAD__");
+
     quote! {
         #[doc = #doc]
         pub fn #rust_fn_ident(#(#param_names: #param_types),*) {
             #ensure_fn_ident();
 
             let payload = #payload_tokens;
-            let _ = ::dioxus::document::eval(&format!(
-                r#"
-                (function() {{
-                    const mod = window.__DIOXUS_BINDGEN_MODULES__?.["{module_hash}"];
-                    if (!mod) {{
-                        console.warn("[dioxus-js-bindgen]: Module '{module_hash}' not found. Browser context may have reloaded.");
-                        return;
-                    }}
-                    try {{
-                        const payload = {payload};
-                        mod.{js_name}(...payload);
-                    }} catch (e) {{
-                        console.error("[dioxus-js-bindgen Command Error in {js_name}]:", e);
-                    }}
-                }})();
-                "#,
-                module_hash = #module_hash,
-                js_name = #js_name,
-                payload = payload
-            ));
+            let script = format!("{}{}{}", #part1, payload, #part2);
+            let _ = ::dioxus::document::eval(&script);
         }
     }
 }
@@ -203,33 +176,24 @@ fn generate_query(
         quote! { ::dioxus_js_interop::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in query") }
     };
 
+    let query_js = include_str!("../templates/query.js")
+        .replace("__MODULE_HASH__", module_hash)
+        .replace("__JS_NAME__", js_name);
+    let (query_part1, query_part2) = query_js.split_once("__PAYLOAD__").expect("query template missing __PAYLOAD__");
+
+    let retry_js = include_str!("../templates/query_retry.js")
+        .replace("__MODULE_HASH__", module_hash)
+        .replace("__JS_NAME__", js_name);
+    let (retry_part1, retry_part2) = retry_js.split_once("__PAYLOAD__").expect("retry template missing __PAYLOAD__");
+
     quote! {
         #[doc = #doc]
         pub async fn #rust_fn_ident(#(#param_names: #param_types),*) -> Result<#ret_type, ::dioxus_js_interop::JsError> {
             #ensure_fn_ident();
 
             let payload = #payload_tokens;
-            let mut eval = ::dioxus::document::eval(&format!(
-                r#"
-                (async function() {{
-                    const mod = window.__DIOXUS_BINDGEN_MODULES__?.["{module_hash}"];
-                    if (!mod) {{
-                        dioxus.send({{ ok: false, error: "MODULE_NOT_FOUND" }});
-                        return;
-                    }}
-                    try {{
-                        const payload = {payload};
-                        const result = await mod.{js_name}(...payload);
-                        dioxus.send({{ ok: true, data: result }});
-                    }} catch (err) {{
-                        dioxus.send({{ ok: false, error: err.message || String(err), stack: err.stack }});
-                    }}
-                }})();
-                "#,
-                module_hash = #module_hash,
-                js_name = #js_name,
-                payload = payload
-            ));
+            let script = format!("{}{}{}", #query_part1, payload, #query_part2);
+            let mut eval = ::dioxus::document::eval(&script);
 
             let raw_val: ::dioxus_js_interop::serde_json::Value = eval.recv().await
                 .map_err(|e| ::dioxus_js_interop::JsError::Transport(e.to_string()))?;
@@ -255,27 +219,8 @@ fn generate_query(
                     #epoch_ident.store(0, ::std::sync::atomic::Ordering::Release);
                     #ensure_fn_ident();
 
-                    let mut retry_eval = ::dioxus::document::eval(&format!(
-                        r#"
-                        (async function() {{
-                            const mod = window.__DIOXUS_BINDGEN_MODULES__?.["{module_hash}"];
-                            if (!mod) {{
-                                dioxus.send({{ ok: false, error: "MODULE_UNAVAILABLE" }});
-                                return;
-                            }}
-                            try {{
-                                const payload = {payload};
-                                const result = await mod.{js_name}(...payload);
-                                dioxus.send({{ ok: true, data: result }});
-                            }} catch (err) {{
-                                dioxus.send({{ ok: false, error: err.message || String(err), stack: err.stack }});
-                            }}
-                        }})();
-                        "#,
-                        module_hash = #module_hash,
-                        js_name = #js_name,
-                        payload = payload
-                    ));
+                    let retry_script = format!("{}{}{}", #retry_part1, payload, #retry_part2);
+                    let mut retry_eval = ::dioxus::document::eval(&retry_script);
 
                     let retry_val: ::dioxus_js_interop::serde_json::Value = retry_eval.recv().await
                         .map_err(|e| ::dioxus_js_interop::JsError::Transport(e.to_string()))?;
@@ -304,6 +249,7 @@ fn generate_watcher(
     rust_name_ident: &Ident,
     ensure_fn_ident: &Ident,
     epoch_ident: &Ident,
+    is_raf: bool,
 ) -> TokenStream {
     let js_name = &export.name;
     let doc = export.doc_comment.as_deref().unwrap_or("");
@@ -328,6 +274,19 @@ fn generate_watcher(
         quote! { ::dioxus_js_interop::serde_json::to_string(&(#(#param_names,)*)).expect("Serialization failed in watcher") }
     };
 
+    let template = if is_raf {
+        include_str!("../templates/watcher_raf.js")
+    } else {
+        include_str!("../templates/watcher_immediate.js")
+    };
+
+    let js = template
+        .replace("__MODULE_HASH__", module_hash)
+        .replace("__JS_NAME__", js_name);
+
+    let (part1, rest) = js.split_once("__PAYLOAD__").expect("watcher template missing __PAYLOAD__");
+    let (part2, part3) = rest.split_once("__SUB_ID__").expect("watcher template missing __SUB_ID__");
+
     quote! {
         #[doc = #doc]
         pub fn #rust_name_ident(
@@ -338,28 +297,9 @@ fn generate_watcher(
 
             let sub_id = ::dioxus_js_interop::internal::next_subscription_id();
             let payload = #payload_tokens;
+            let script = format!("{}{}{}{}{}", #part1, payload, #part2, sub_id, #part3);
 
-            let mut eval = ::dioxus::document::eval(&format!(
-                r#"
-                (function() {{
-                    const mod = window.__DIOXUS_BINDGEN_MODULES__?.["{module_hash}"];
-                    if (!mod) {{
-                        console.error("[dioxus-js-bindgen]: Module '{module_hash}' not found. Cannot start watcher.");
-                        dioxus.send({{ __bindgen_err: "MODULE_NOT_FOUND" }});
-                        return;
-                    }}
-                    if (!window.__DIOXUS_WATCHERS) window.__DIOXUS_WATCHERS = new Map();
-                    const emit = (val) => dioxus.send(val);
-                    const payload = {payload};
-                    const cleanup = mod.{js_name}(...payload, emit);
-                    window.__DIOXUS_WATCHERS.set({sub_id}, cleanup);
-                }})();
-                "#,
-                module_hash = #module_hash,
-                js_name = #js_name,
-                sub_id = sub_id,
-                payload = payload
-            ));
+            let mut eval = ::dioxus::document::eval(&script);
 
             let task = ::dioxus::prelude::spawn(async move {
                 while let Ok(event) = eval.recv::<::dioxus_js_interop::serde_json::Value>().await {
@@ -373,7 +313,7 @@ fn generate_watcher(
                         }
                         Err(err) => {
                             ::dioxus_js_interop::tracing::error!(
-                                target: "dioxus_js_bindgen",
+                                target: "dioxus_js_interop",
                                 "Failed to deserialize watcher event for '{}': {}",
                                 #js_name,
                                 err

@@ -13,14 +13,7 @@ use swc_core::ecma::codegen::{Config, Emitter};
 use swc_core::ecma::parser::{lexer::Lexer, Parser, StringInput, Syntax, TsSyntax};
 use swc_core::ecma::transforms::typescript::strip;
 
-use crate::syntax::{ItemSpec, PillarAttr};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InferredPillar {
-    Command,
-    Query,
-    Watcher,
-}
+use crate::syntax::{InteropMode, ItemSpec};
 
 #[derive(Debug, Clone)]
 pub struct ParamInfo {
@@ -33,7 +26,7 @@ pub struct ParamInfo {
 #[derive(Debug, Clone)]
 pub struct ExportedFunction {
     pub name: String,
-    pub pillar: InferredPillar,
+    pub mode: InteropMode,
     pub params: Vec<ParamInfo>,
     pub return_rust_type: Option<proc_macro2::TokenStream>,
     pub doc_comment: Option<String>,
@@ -152,11 +145,11 @@ pub fn analyze_source(
     })
 }
 
-fn extract_comment_pillar(
+fn extract_comment_mode(
     comments: &SingleThreadedComments,
     spans: &[swc_core::common::Span],
-) -> (Option<InferredPillar>, Option<String>) {
-    let mut pillar = None;
+) -> (Option<InteropMode>, Option<String>) {
+    let mut mode = None;
     let mut doc_lines = Vec::new();
 
     for span in spans {
@@ -164,11 +157,13 @@ fn extract_comment_pillar(
             for c in leading {
                 let text = c.text.trim();
                 if text.contains("#[command]") {
-                    pillar = Some(InferredPillar::Command);
+                    mode = Some(InteropMode::Command);
                 } else if text.contains("#[query]") {
-                    pillar = Some(InferredPillar::Query);
+                    mode = Some(InteropMode::Query);
+                } else if text.contains("#[watcher(raf)]") || text.contains("#[monitor(raf)]") {
+                    mode = Some(InteropMode::Watcher { is_raf: true });
                 } else if text.contains("#[watcher]") || text.contains("#[monitor]") {
-                    pillar = Some(InferredPillar::Watcher);
+                    mode = Some(InteropMode::Watcher { is_raf: false });
                 } else if text.starts_with('*') || (!text.starts_with('#') && !text.is_empty()) {
                     doc_lines.push(text.trim_start_matches('*').trim().to_string());
                 }
@@ -182,10 +177,10 @@ fn extract_comment_pillar(
         Some(doc_lines.join("\n"))
     };
 
-    (pillar, doc)
+    (mode, doc)
 }
 
-fn find_macro_override(name: &str, macro_items: &[ItemSpec]) -> Option<InferredPillar> {
+fn find_macro_override(name: &str, macro_items: &[ItemSpec]) -> Option<InteropMode> {
     let name_camel = name.to_lower_camel_case();
     let name_snake = name.to_snake_case();
     macro_items
@@ -195,13 +190,7 @@ fn find_macro_override(name: &str, macro_items: &[ItemSpec]) -> Option<InferredP
             let item_snake = item.original_name.to_snake_case();
             item_camel == name_camel || item_snake == name_snake
         })
-        .and_then(|item| {
-            item.attr.map(|a| match a {
-                PillarAttr::Command => InferredPillar::Command,
-                PillarAttr::Query => InferredPillar::Query,
-                PillarAttr::Watcher => InferredPillar::Watcher,
-            })
-        })
+        .and_then(|item| item.mode)
 }
 
 fn is_item_targeted(name: &str, macro_items: &[ItemSpec], wildcard: bool) -> bool {
@@ -226,11 +215,11 @@ fn extract_fn_decl(
     call_span: Span,
 ) -> syn::Result<ExportedFunction> {
     let name = fn_decl.ident.sym.to_string();
-    let (comment_pillar, doc_comment) = extract_comment_pillar(
+    let (comment_mode, doc_comment) = extract_comment_mode(
         comments,
         &[export_span, fn_decl.function.span, fn_decl.ident.span],
     );
-    let macro_pillar = find_macro_override(&name, macro_items);
+    let macro_mode = find_macro_override(&name, macro_items);
 
     let mut params = Vec::new();
     for param in &fn_decl.function.params {
@@ -252,16 +241,16 @@ fn extract_fn_decl(
         call_span,
     )?;
 
-    let pillar = determine_pillar(
-        macro_pillar,
-        comment_pillar,
+    let mode = determine_mode(
+        macro_mode,
+        comment_mode,
         fn_decl.function.is_async,
         is_promise,
         is_void,
         &params,
     );
 
-    if is_target && is_fn && pillar != InferredPillar::Watcher {
+    if is_target && is_fn && !matches!(mode, InteropMode::Watcher { .. }) {
         return Err(syn::Error::new(
             call_span,
             "Higher-order functions returning functions are not supported in bind_js!. Return concrete serializable data or use a Watcher callback (annotated with #[watcher]).",
@@ -270,7 +259,7 @@ fn extract_fn_decl(
 
     Ok(ExportedFunction {
         name,
-        pillar,
+        mode,
         params,
         return_rust_type: return_type,
         doc_comment,
@@ -290,8 +279,8 @@ fn extract_var_decl(
         _ => return Ok(None),
     };
 
-    let (comment_pillar, doc_comment) = extract_comment_pillar(comments, &[export_span, decl.span]);
-    let macro_pillar = find_macro_override(&name, macro_items);
+    let (comment_mode, doc_comment) = extract_comment_mode(comments, &[export_span, decl.span]);
+    let macro_mode = find_macro_override(&name, macro_items);
 
     let (params_ast, return_ann, is_async) = match &decl.init {
         Some(init_expr) => match &**init_expr {
@@ -331,16 +320,16 @@ fn extract_var_decl(
 
     let (return_type, is_promise, is_void, is_fn) = parse_return_type(return_ann, call_span)?;
 
-    let pillar = determine_pillar(
-        macro_pillar,
-        comment_pillar,
+    let mode = determine_mode(
+        macro_mode,
+        comment_mode,
         is_async,
         is_promise,
         is_void,
         &params,
     );
 
-    if is_target && is_fn && pillar != InferredPillar::Watcher {
+    if is_target && is_fn && !matches!(mode, InteropMode::Watcher { .. }) {
         return Err(syn::Error::new(
             call_span,
             "Higher-order functions returning functions are not supported in bind_js!. Return concrete serializable data or use a Watcher callback (annotated with #[watcher]).",
@@ -349,43 +338,43 @@ fn extract_var_decl(
 
     Ok(Some(ExportedFunction {
         name,
-        pillar,
+        mode,
         params,
         return_rust_type: return_type,
         doc_comment,
     }))
 }
 
-fn determine_pillar(
-    macro_pillar: Option<InferredPillar>,
-    comment_pillar: Option<InferredPillar>,
+fn determine_mode(
+    macro_mode: Option<InteropMode>,
+    comment_mode: Option<InteropMode>,
     is_async: bool,
     is_promise: bool,
     is_void: bool,
     _params: &[ParamInfo],
-) -> InferredPillar {
+) -> InteropMode {
     // 1. Macro invocation attribute (1st priority)
-    if let Some(p) = macro_pillar {
+    if let Some(p) = macro_mode {
         return p;
     }
 
     // 2. TS doc comment priority (2nd priority)
-    if let Some(p) = comment_pillar {
+    if let Some(p) = comment_mode {
         return p;
     }
 
     // 3. Return type AST inference (3rd priority, GD-02)
-    // Per GD-02: Watcher strictly requires explicit annotation (#[watcher]).
+    // Watcher strictly requires explicit annotation (#[watcher] or #[watcher(raf)]).
     // Non-annotated functions are partitioned into Command or Query:
     if is_promise || (is_async && !is_void) {
-        return InferredPillar::Query;
+        return InteropMode::Query;
     }
 
     if is_void {
-        return InferredPillar::Command;
+        return InteropMode::Command;
     }
 
-    InferredPillar::Query
+    InteropMode::Query
 }
 
 fn parse_param_type(
@@ -693,7 +682,7 @@ mod tests {
             }
         "#;
         let macro_items = vec![ItemSpec {
-            attr: None,
+            mode: None,
             original_name: "normalAction".to_string(),
             rename_as: None,
         }];
@@ -710,14 +699,14 @@ mod tests {
             }
         "#;
         let macro_items = vec![ItemSpec {
-            attr: Some(PillarAttr::Watcher),
+            mode: Some(InteropMode::Watcher { is_raf: false }),
             original_name: "watchCustom".to_string(),
             rename_as: None,
         }];
         let res = analyze_source(ts, "test.ts", &macro_items, true, Span::call_site());
         assert!(res.is_ok(), "Macro #[watcher] must permit higher-order cleanup return");
         let analyzed = res.unwrap();
-        assert_eq!(analyzed.exports[0].pillar, InferredPillar::Watcher);
+        assert_eq!(analyzed.exports[0].mode, InteropMode::Watcher { is_raf: false });
     }
 
     #[test]
@@ -738,26 +727,38 @@ mod tests {
                 window.addEventListener('scroll', handler);
                 return () => window.removeEventListener('scroll', handler);
             }
+
+            /**
+             * #[watcher(raf)]
+             */
+            export function watchResize(emit: (w: number) => void): () => void {
+                return () => {};
+            }
         "#;
 
         let res = analyze_source(ts, "test.ts", &[], true, Span::call_site()).unwrap();
-        assert_eq!(res.exports.len(), 3);
+        assert_eq!(res.exports.len(), 4);
 
         // Command
         assert_eq!(res.exports[0].name, "focusElement");
-        assert_eq!(res.exports[0].pillar, InferredPillar::Command);
+        assert_eq!(res.exports[0].mode, InteropMode::Command);
         assert_eq!(res.exports[0].params.len(), 1);
         assert_eq!(res.exports[0].params[0].name, "id");
 
         // Query
         assert_eq!(res.exports[1].name, "getBoundingRect");
-        assert_eq!(res.exports[1].pillar, InferredPillar::Query);
+        assert_eq!(res.exports[1].mode, InteropMode::Query);
         assert!(res.exports[1].return_rust_type.is_some());
 
-        // Watcher
+        // Watcher (Immediate)
         assert_eq!(res.exports[2].name, "watchScroll");
-        assert_eq!(res.exports[2].pillar, InferredPillar::Watcher);
+        assert_eq!(res.exports[2].mode, InteropMode::Watcher { is_raf: false });
         assert!(res.exports[2].params[0].is_callback);
+
+        // Watcher (rAF coalesced)
+        assert_eq!(res.exports[3].name, "watchResize");
+        assert_eq!(res.exports[3].mode, InteropMode::Watcher { is_raf: true });
+        assert!(res.exports[3].params[0].is_callback);
 
         // Inlined JS contains pure JS without types
         println!("INLINED JS:\n{}", res.inlined_js);

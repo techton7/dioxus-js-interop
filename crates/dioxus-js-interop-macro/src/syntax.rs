@@ -2,15 +2,15 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Ident, LitStr, Result, Token};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PillarAttr {
+pub enum InteropMode {
     Command,
     Query,
-    Watcher,
+    Watcher { is_raf: bool },
 }
 
 #[derive(Debug, Clone)]
 pub struct ItemSpec {
-    pub attr: Option<PillarAttr>,
+    pub mode: Option<InteropMode>,
     pub original_name: String,
     pub rename_as: Option<Ident>,
 }
@@ -51,20 +51,31 @@ impl Parse for BindJsInput {
                 continue;
             }
 
-            let mut attr = None;
+            let mut mode = None;
             if content.peek(Token![#]) {
                 let parsed_attrs = content.call(Attribute::parse_outer)?;
                 for a in parsed_attrs {
                     if a.path().is_ident("command") {
-                        attr = Some(PillarAttr::Command);
+                        mode = Some(InteropMode::Command);
                     } else if a.path().is_ident("query") {
-                        attr = Some(PillarAttr::Query);
+                        mode = Some(InteropMode::Query);
                     } else if a.path().is_ident("watcher") || a.path().is_ident("monitor") {
-                        attr = Some(PillarAttr::Watcher);
+                        let mut is_raf = false;
+                        if let syn::Meta::List(meta_list) = &a.meta {
+                            meta_list.parse_nested_meta(|nested| {
+                                if nested.path.is_ident("raf") {
+                                    is_raf = true;
+                                    Ok(())
+                                } else {
+                                    Err(nested.error("Unknown watcher attribute argument. Allowed: #[watcher(raf)]"))
+                                }
+                            })?;
+                        }
+                        mode = Some(InteropMode::Watcher { is_raf });
                     } else {
                         return Err(syn::Error::new_spanned(
                             a,
-                            "Unknown attribute for bind_js item. Allowed: #[command], #[query], #[watcher]",
+                            "Unknown attribute for bind_js item. Allowed: #[command], #[query], #[watcher], #[watcher(raf)]",
                         ));
                     }
                 }
@@ -81,7 +92,7 @@ impl Parse for BindJsInput {
             }
 
             items.push(ItemSpec {
-                attr,
+                mode,
                 original_name,
                 rename_as,
             });
@@ -120,6 +131,7 @@ mod tests {
                 #[command] playSound as play_sound,
                 #[query] getRect,
                 #[watcher] watchScroll as on_scroll,
+                #[watcher(raf)] watchResize as on_resize,
                 *
             }
             "#,
@@ -128,21 +140,25 @@ mod tests {
 
         assert_eq!(input.file_path.value(), "src/dom.ts");
         assert!(input.wildcard);
-        assert_eq!(input.items.len(), 4);
+        assert_eq!(input.items.len(), 5);
 
         assert_eq!(input.items[0].original_name, "focusElement");
-        assert_eq!(input.items[0].attr, None);
+        assert_eq!(input.items[0].mode, None);
         assert_eq!(input.items[0].rename_as, None);
 
         assert_eq!(input.items[1].original_name, "playSound");
-        assert_eq!(input.items[1].attr, Some(PillarAttr::Command));
+        assert_eq!(input.items[1].mode, Some(InteropMode::Command));
         assert_eq!(input.items[1].rename_as.as_ref().unwrap().to_string(), "play_sound");
 
         assert_eq!(input.items[2].original_name, "getRect");
-        assert_eq!(input.items[2].attr, Some(PillarAttr::Query));
+        assert_eq!(input.items[2].mode, Some(InteropMode::Query));
 
         assert_eq!(input.items[3].original_name, "watchScroll");
-        assert_eq!(input.items[3].attr, Some(PillarAttr::Watcher));
+        assert_eq!(input.items[3].mode, Some(InteropMode::Watcher { is_raf: false }));
         assert_eq!(input.items[3].rename_as.as_ref().unwrap().to_string(), "on_scroll");
+
+        assert_eq!(input.items[4].original_name, "watchResize");
+        assert_eq!(input.items[4].mode, Some(InteropMode::Watcher { is_raf: true }));
+        assert_eq!(input.items[4].rename_as.as_ref().unwrap().to_string(), "on_resize");
     }
 }

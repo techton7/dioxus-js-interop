@@ -76,6 +76,16 @@ mod selective_wildcard_bridge {
     });
 }
 
+// 8. Opt-in rAF watcher test module (both via TS doc comment and macro attribute #[watcher(raf)])
+mod raf_watcher_bridge {
+    use super::*;
+    bind_js!("tests/fixtures/test_bridge.ts"::{
+        watch_scroll_framed,
+        #[watcher(raf)]
+        fn watch_custom_signal as watch_custom_signal_framed,
+    });
+}
+
 #[test]
 fn test_wildcard_signatures() {
     // Check function existence and signatures without running browser eval
@@ -143,6 +153,25 @@ fn test_multi_invocation_hygiene() {
 #[test]
 fn test_macro_watcher_override_precedence() {
     let _guard: Option<dioxus_js_interop::WatcherGuard> = None;
+}
+
+#[test]
+fn test_raf_watcher_signatures() {
+    fn _check_doc<F>(f: F)
+    where
+        F: Fn(fn(f64)) -> dioxus_js_interop::WatcherGuard,
+    {
+        let _ = f;
+    }
+    _check_doc(raf_watcher_bridge::watch_scroll_framed);
+
+    fn _check_macro<F>(f: F)
+    where
+        F: Fn(f64, fn(f64)) -> dioxus_js_interop::WatcherGuard,
+    {
+        let _ = f;
+    }
+    _check_macro(raf_watcher_bridge::watch_custom_signal_framed);
 }
 
 // Component to test use_watcher compiles cleanly with generated Watcher function
